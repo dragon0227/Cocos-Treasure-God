@@ -1,0 +1,209 @@
+
+caishen_item.png
+size: 432,523
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+fo_light
+  rotate: false
+  xy: 148, 396
+  size: 125, 125
+  orig: 125, 125
+  offset: 0, 0
+  index: -1
+icon_bun
+  rotate: true
+  xy: 246, 105
+  size: 90, 72
+  orig: 90, 72
+  offset: 0, 0
+  index: -1
+icon_corses_down
+  rotate: true
+  xy: 323, 57
+  size: 53, 31
+  orig: 53, 31
+  offset: 0, 0
+  index: -1
+icon_corses_up
+  rotate: true
+  xy: 382, 342
+  size: 56, 48
+  orig: 67, 48
+  offset: 11, 0
+  index: -1
+icon_fin_left
+  rotate: false
+  xy: 397, 406
+  size: 28, 19
+  orig: 28, 19
+  offset: 0, 0
+  index: -1
+icon_fin_right
+  rotate: false
+  xy: 323, 3
+  size: 26, 17
+  orig: 26, 17
+  offset: 0, 0
+  index: -1
+icon_goldfish
+  rotate: true
+  xy: 135, 275
+  size: 114, 98
+  orig: 114, 98
+  offset: 0, 0
+  index: -1
+icon_gong
+  rotate: true
+  xy: 236, 3
+  size: 90, 85
+  orig: 90, 85
+  offset: 0, 0
+  index: -1
+icon_gong_flare
+  rotate: false
+  xy: 2, 253
+  size: 131, 136
+  orig: 131, 136
+  offset: 0, 0
+  index: -1
+icon_gong_glow2
+  rotate: false
+  xy: 275, 400
+  size: 120, 121
+  orig: 120, 121
+  offset: 0, 0
+  index: -1
+icon_hammer
+  rotate: true
+  xy: 320, 112
+  size: 44, 55
+  orig: 44, 55
+  offset: 0, 0
+  index: -1
+icon_luckybag
+  rotate: false
+  xy: 290, 303
+  size: 90, 95
+  orig: 90, 95
+  offset: 0, 0
+  index: -1
+icon_luckybag_s.png
+  rotate: true
+  xy: 379, 222
+  size: 79, 51
+  orig: 79, 51
+  offset: 0, 0
+  index: -1
+icon_peach
+  rotate: false
+  xy: 290, 219
+  size: 87, 82
+  orig: 88, 82
+  offset: 1, 0
+  index: -1
+icon_peach_leaf_down
+  rotate: true
+  xy: 397, 427
+  size: 94, 30
+  orig: 94, 30
+  offset: 0, 0
+  index: -1
+icon_peach_leaf_left
+  rotate: false
+  xy: 288, 197
+  size: 20, 20
+  orig: 20, 21
+  offset: 0, 1
+  index: -1
+icon_peach_leaf_right
+  rotate: true
+  xy: 356, 86
+  size: 24, 14
+  orig: 24, 14
+  offset: 0, 0
+  index: -1
+icon_plate
+  rotate: false
+  xy: 135, 95
+  size: 109, 75
+  orig: 109, 79
+  offset: 0, 0
+  index: -1
+icon_ruyi
+  rotate: false
+  xy: 128, 4
+  size: 106, 89
+  orig: 106, 89
+  offset: 0, 0
+  index: -1
+icon_tanghulu_01
+  rotate: false
+  xy: 320, 158
+  size: 56, 59
+  orig: 56, 59
+  offset: 0, 0
+  index: -1
+icon_tanghulu_02
+  rotate: false
+  xy: 323, 22
+  size: 33, 33
+  orig: 33, 33
+  offset: 0, 0
+  index: -1
+icon_tanghulu_03
+  rotate: false
+  xy: 382, 306
+  size: 35, 34
+  orig: 35, 34
+  offset: 0, 0
+  index: -1
+icon_text_caishen
+  rotate: true
+  xy: 236, 197
+  size: 97, 50
+  orig: 97, 50
+  offset: 0, 0
+  index: -1
+icon_text_caishendao_bg
+  rotate: true
+  xy: 135, 172
+  size: 101, 99
+  orig: 101, 99
+  offset: 0, 0
+  index: -1
+icon_text_dao
+  rotate: true
+  xy: 235, 296
+  size: 98, 53
+  orig: 98, 53
+  offset: 0, 0
+  index: -1
+item_nml_7
+  rotate: false
+  xy: 2, 391
+  size: 144, 130
+  orig: 146, 146
+  offset: 1, 8
+  index: -1
+item_nml_8
+  rotate: false
+  xy: 2, 2
+  size: 124, 114
+  orig: 146, 146
+  offset: 11, 16
+  index: -1
+item_nml_9
+  rotate: true
+  xy: 2, 118
+  size: 133, 131
+  orig: 146, 146
+  offset: 7, 7
+  index: -1
+star
+  rotate: false
+  xy: 379, 170
+  size: 51, 50
+  orig: 51, 50
+  offset: 0, 0
+  index: -1

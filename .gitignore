@@ -1,0 +1,15 @@
+.eslintrc
+jsconfig.json
+package.json
+package-lock.json
+project.json
+tsconfig.json
+*.meta
+assets/audio/
+assets/font/
+build/
+library/
+local/
+settings/
+temp/
+packages/
