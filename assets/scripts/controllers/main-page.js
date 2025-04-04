@@ -632,7 +632,7 @@ cc.Class({
         //     this.machine.getComponent('Machine').stop(this.result);
         // });
         setTimeout(() => {
-            const tmpRes = '{"na":"s","balance":1000128.08,"sh":5,"sver":3,"fs":0,"fi":0,"wm":1,"s":"10,3,9,7,1,9,9,2,7,9,7,9,4,8,9","ws":"","w":100,"tw":0,"l":20,"wl":[{"SymbolIndex":9,"WinValue":0.6000000000000001,"Count":3,"PayLine":{"Name":"Line12","PositionList":[2,2,2,2,2]}},{"SymbolIndex":9,"WinValue":0.6000000000000001,"Count":3,"PayLine":{"Name":"Line13","PositionList":[0,0,0,0,0]}},{"SymbolIndex":3,"WinValue":6.000000000000001,"Count":3,"PayLine":{"Name":"Line1","PositionList":[1,1,1,1,1]}}],"bebet":0.2,"gv":1,"sv":0,"svs":[]}';
+            const tmpRes = '{"na":"s","balance":1000128.08,"sh":5,"sver":3,"fs":0,"fi":0,"wm":1,"s":"10,3,9,7,1,9,9,2,7,9,7,9,4,8,9","ws":"","w":0,"tw":0,"l":20,"wl":[{"SymbolIndex":9,"WinValue":0.6000000000000001,"Count":3,"PayLine":{"Name":"Line12","PositionList":[2,2,2,2,2]}},{"SymbolIndex":9,"WinValue":0.6000000000000001,"Count":3,"PayLine":{"Name":"Line13","PositionList":[0,0,0,0,0]}},{"SymbolIndex":3,"WinValue":6.000000000000001,"Count":3,"PayLine":{"Name":"Line1","PositionList":[1,1,1,1,1]}}],"bebet":0.2,"gv":1,"sv":0,"svs":[]}';
             const res = JSON.parse(tmpRes);
             this.result = res;
             this.machine.getComponent('Machine').stop(this.result);

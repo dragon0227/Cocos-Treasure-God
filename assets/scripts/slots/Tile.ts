@@ -4,47 +4,66 @@ const { ccclass, property } = cc._decorator;
 export default class Tile extends cc.Component {
   @property({ type: [cc.SpriteFrame], visible: true })
   private textures = [];
+  public symbol = null;
 
-  private animationItems = [];
-
-  private animationBorder = null;
-
-  private winLabel = null;
-
-  public title = null;
-
-  public tileIndex = -1;
+  public row = -1;
+  public col = -1;
 
   private addAniItems = [];
+
+  private animationNode = null;
+  private skeleton = null;
+  private border = null;
+  private winLabel = null;
 
   async onLoad(): Promise<void> {
     await this.loadWinLabel();
     await this.loadTextures();
-    for (let i = 0; i < 12; i++) {
-      let itemName = '';
-      if (i >= 10) {
-        itemName = `item_${i}`;
-      } else {
-        itemName = `item_0${i}`
-      }
-      await this.loadAnimationItem(itemName);
-    }
     await this.loadAnimationBorder();
-  }
 
-  async resetInEditor(): Promise<void> {
-    await this.loadTextures();
-    for (let i = 0; i < 12; i++) {
-      let itemName = '';
-      if (i >= 10) {
-        itemName = `item_${i}`;
-      } else {
-        itemName = `item_0${i}`
-      }
-      await this.loadAnimationItem(itemName);
+    if (this.node) {
+      this.border = this.node.getChildByName("Border");
+      this.winLabel = this.node.getChildByName("WinLabel");
+      this.animationNode = this.node.getChildByName("Animation");
+      this.skeleton = this.animationNode.getComponent(sp.Skeleton);
+
+      const that = this;
+      const thatParent = this.node.parent.parent.parent.parent;
+      thatParent.on('all-win-animation', (res) => {
+        const wl = res.data.wl;
+        const win = res.data.w;
+        for (let i = 0; i < wl.length; i++) {
+          const payLine = wl[i].PayLine;
+          if (payLine.PositionList[that.col] == that.row) {
+            that.showGFX(true, that.symbol, 0, true);
+          }
+        }
+        if (that.row == 1 && that.col == 4) {
+          if (win > 0) {
+            that.showWinLabel(win, true);
+          }
+        }
+        setTimeout(() => {
+          that.showGFX(false);
+        }, 1000);
+      });
+      thatParent.on('sub-win-animation', (res) => {
+        const wl = res.data.wl;
+        const index = res.index;
+        const payLine = wl[index].PayLine;
+        const win = wl[index].WinValue;
+        if (payLine.PositionList[that.col] == that.row) {
+          if (that.col == 4 && payLine.PositionList[2] == that.row) {
+            that.showGFX(true, that.symbol, win, false);
+          } else {
+            that.showGFX(true, that.symbol, 0, false);
+          }
+        }
+        setTimeout(() => {
+          that.showGFX(false);
+        }, 1000);
+      });
     }
-    await this.loadAnimationBorder();
-    this.setRandom();
   }
 
   async loadWinLabel(): Promise<boolean> {
@@ -67,18 +86,6 @@ export default class Tile extends cc.Component {
     });
   }
 
-  async loadAnimationItem(itemName: string): Promise<boolean> {
-    const self = this;
-    return new Promise<boolean>(resolve => {
-      cc.loader.loadRes(itemName, cc.Prefab, function afterLoad(err, loadedItem) {
-        if (self.animationItems) {
-          self.animationItems.push(cc.instantiate(loadedItem));
-        }
-        resolve(true);
-      });
-    });
-  }
-
   async loadAnimationBorder(): Promise<boolean> {
     const self = this;
     return new Promise<boolean>(resolve => {
@@ -89,85 +96,66 @@ export default class Tile extends cc.Component {
     });
   }
 
-  setTile(index: number, mIndex: number): void {
-    this.title = index;
-    this.tileIndex = mIndex;
-    this.node.getComponent(cc.Sprite).spriteFrame = this.textures[index];
+  setTile(symbol: number, col: number, row: number): void {
+    this.symbol = symbol;
+    this.row = row;
+    this.col = col;
+    this.node.getComponent(cc.Sprite).spriteFrame = this.textures[symbol];
   }
 
   setRandom(): void {
     const randomIndex = Math.floor(Math.random() * this.textures.length);
-    this.setTile(randomIndex, -1);
+    this.setTile(randomIndex, -1, -1);
   }
 
   showDrumAnimation() {
     this.node.getComponent(cc.Sprite).spriteFrame = null;
-    if (!this.addAniItems.includes(parseInt(this.title))) {
-      this.addAniItems.push(11);
-      this.node.addChild(this.animationItems[11]);
-      this.animationItems[11].setPosition(0, 0);
-      if (this.addAniItems.length == 1) {
-        this.node.addChild(this.animationBorder);
-        this.animationBorder.setPosition(0, 0);
-      }
-      this.node.addChild(this.winLabel);
-      this.winLabel.setPosition(-370, 0);
-    }
-    this.animationItems[11].active = true;
-    const skeleton = this.animationItems[11].getComponent(sp.Skeleton);
-    skeleton.setAnimation(0, "item_nml_11", false);
-    skeleton.getComponent(cc.AudioSource).play();
+    this.animationNode.active = true;
+    this.skeleton.setAnimation(0, "item_nml_11", false);
+    this.node.getComponent(cc.AudioSource).play();
+    const that = this;
+    setTimeout(() => {
+      that.node.getComponent(cc.Sprite).spriteFrame = this.textures[parseInt(this.symbol)];
+      that.animationNode.active = false;
+    }, 1000);
   }
 
   showGFX(option: boolean, index?: number, win?: number, isTotalWin?: boolean){
     if(option){
       this.node.getComponent(cc.Sprite).spriteFrame = null;
-      if (!this.addAniItems.includes(index)) {
-        this.addAniItems.push(index);
-        this.node.addChild(this.animationItems[index]);
-        this.animationItems[index].setPosition(0, 0);
-        if (this.addAniItems.length == 1) {
-          this.node.addChild(this.animationBorder);
-          this.animationBorder.setPosition(0, 0);
-        }
-        this.node.addChild(this.winLabel);
-        this.winLabel.setPosition(-370, 0);
-      }
-      this.animationItems[index].active = option;
-      this.animationBorder.active = option;
-      if (win > 0) {
-        this.winLabel.active = option;
-        const labelComponent = this.winLabel.getComponent(cc.Label);
-        labelComponent.string = win.toFixed(2);
-        if (isTotalWin) {
-          labelComponent.fontSize = 100; 
-          labelComponent.lineHeight = 100;
-        } else {
-          labelComponent.fontSize = 60; 
-          labelComponent.lineHeight = 60;
-        }
-      }
+      this.skeleton.setAnimation(0, `item_nml_${index}`, true);
+      this.animationNode.active = true;
+      this.border.active = true;
+      this.showWinLabel(win, isTotalWin);
     }
     else{
-      this.node.getComponent(cc.Sprite).spriteFrame = this.textures[parseInt(this.title)];
-      for (let i = 0 ; i < 12; i ++) {
-        //this.animationItems[i].parent = null;
-        this.animationItems[i].active = option;
-      }
-      if (this.animationBorder) {
-        this.animationBorder.active = option;
-        this.winLabel.active = option;
+      this.node.getComponent(cc.Sprite).spriteFrame = this.textures[parseInt(this.symbol)];
+      this.animationNode.active = false;
+      this.border.active = false;
+      this.winLabel.active = false;
+    }
+  }
+  showWinLabel(win?: number, isTotalWin?: boolean) {
+    if (win > 0) {
+      this.winLabel.active = true;
+      const labelComponent = this.winLabel.getComponent(cc.Label);
+      labelComponent.string = win.toFixed(2);
+      if (isTotalWin) {
+        labelComponent.fontSize = 100;
+        labelComponent.lineHeight = 100;
+      } else {
+        labelComponent.fontSize = 60; 
+        labelComponent.lineHeight = 60;
       }
     }
   }
 
   removeAnimation(): void{
-    this.addAniItems = [];
-    this.node.removeAllChildren();
-  }
-
-  activeGFX(index: number): void{
-    this.animationItems[index].active = true;
-    this.animationBorder.active = true;
+    this.showGFX(false);
+    this.skeleton.setAnimation(0, '', true);
+    this.node.getComponent(cc.Sprite).spriteFrame = this.textures[parseInt(this.symbol)];
+    this.animationNode.active = false;
+    this.border.active = false;
+    this.winLabel.active = false;
   }
 }

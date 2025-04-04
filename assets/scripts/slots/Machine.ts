@@ -39,8 +39,8 @@ export default class Machine extends cc.Component {
 
   private reels = [];
 
-  public spinning = false;
   private speed = 1;
+  private timeoutIds = [];
 
   createMachine(): void {
     this.node.destroyAllChildren();
@@ -61,8 +61,8 @@ export default class Machine extends cc.Component {
   }
 
   spin(mSpeed: number): void {
-    this.spinning = true;
     this.speed = mSpeed;
+    this.stopAnimation();
 
     for (let i = 0; i < this.numberOfReels; i += 1) {
       const theReel = this.reels[i].getComponent('Reel');
@@ -76,50 +76,13 @@ export default class Machine extends cc.Component {
     //this.button.getComponent(cc.Button).interactable = false;
   }
 
-  stopWinAnimation(): void {
-    for (let i = 0; i < this.numberOfReels; i += 1) {
-      const theReel = this.reels[i].getComponent('Reel');
-      theReel.isStopAnimation = true;
-      theReel.stopAnimate();
-    }
-  }
-
   stop(result: any = null): void {
     const rngMod = Math.random() / 2;
     for (let i = 0; i < this.numberOfReels; i += 1) {
       const spinDelay = i < 2 + rngMod ? i / 4 : rngMod * (i - 2) + i / 4;
       const theReel = this.reels[i].getComponent('Reel');
-      if (i == 4) {
-        const that = this;
-        this.stopReel(theReel, result, i, spinDelay).then(res => {
-          setTimeout(() => {
-            that.node.dispatchEvent( new cc.Event.EventCustom('rolling-completed', true) );
-            that.spinning = false;
-            that.showGFX();
-      
-            for (let i = 0; i < that.numberOfReels; i += 1) {
-              const theReel = that.reels[i].getComponent('Reel');
-              const theMask = theReel.node.getChildByName("Mask");
-              theMask.height = 580;
-              theReel.startAnimation(that.speed);
-            }
-          }, 600);
-        });
-      } else {
-        this.stopReel(theReel, result, i, spinDelay);
-      }
+      this.stopReel(theReel, result, i, spinDelay);
     }
-    const that = this;
-    // setTimeout(() => {
-    //   this.node.dispatchEvent( new cc.Event.EventCustom('rolling-completed', true) );
-    //   this.spinning = false;
-    //   this.showGFX();
-
-    //   for (let i = 0; i < this.numberOfReels; i += 1) {
-    //     const theReel = this.reels[i].getComponent('Reel');
-    //     theReel.startAnimation(this.speed);
-    //   }
-    // }, 5 * 500 * that.speed);
   }
 
   private stopReel(theReel: any, result: any, index: number, spinDelay: number): Promise<void> {
@@ -134,15 +97,54 @@ export default class Machine extends cc.Component {
     return new Promise(function (resolve, reject) {
       setTimeout(() => {
         theReel.readyStop(res, realIndex);
+        if (realIndex == 4) {
+          that.startAnimation(res);
+        }
         resolve();
       }, spinDelay * 500 * that.speed);
     });
-    
   }
 
-  showGFX(): void{
-    for (let i = 0; i < this.numberOfReels; i += 1) {
-      this.reels[i].getComponent('Reel').showGFX();
-    }
+  startAnimation(res) {
+    setTimeout(() => {
+      for (let i = 0; i < this.numberOfReels; i += 1) {
+        const theReel = this.reels[i].getComponent('Reel');
+        theReel.animateDrum();
+        const theMask = theReel.node.getChildByName("Mask");
+        theMask.height = 580;
+      }
+      this.node.dispatchEvent( new cc.Event.EventCustom('rolling-completed', true) );
+      const that = this;
+      const wl = res.wl;
+      const w = res.w;
+      if (w > 0) {
+        that.schedule(async function() {
+          this.node.emit('all-win-animation', { data: res});
+    
+          if (wl.length > 1) {
+            for(let i = 0; i < wl.length; i++){
+              const timeoutId = setTimeout(() => {
+                this.node.emit('sub-win-animation', { data: res, index: i});
+              }, 1200 * (i + 1));
+              that.timeoutIds.push(timeoutId);
+            }
+          }
+        }, (wl.length + 1) * 1.2 * that.speed + 0.5, 15, 0.1);
+      }
+    }, 500);
+  }
+
+  firstTask(): void {
+    console.log("First task executed");
+  }
+
+  secondTask(): void {
+      console.log("Second task executed");
+  }
+
+  stopAnimation(): void {
+    this.unscheduleAllCallbacks();
+    this.timeoutIds.forEach(timeoutId => clearTimeout(timeoutId));
+    this.timeoutIds = []; // Reset the array
   }
 }
