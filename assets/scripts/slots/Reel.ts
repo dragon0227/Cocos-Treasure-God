@@ -21,6 +21,8 @@ export default class Reel extends cc.Component {
     return this._tilePrefab;
   }
 
+  private speed = 1;
+
   set tilePrefab(newPrefab: cc.Prefab) {
     this._tilePrefab = newPrefab;
     this.reelAnchor.removeAllChildren();
@@ -36,9 +38,17 @@ export default class Reel extends cc.Component {
   private result: any = null;
   private realIndex: number = null;
 
-  public stopSpinning = false;
+  public stopSpinning = true;
 
   private tileWidth = 188;
+  private updateCnt = 0;
+
+  update(): void{
+    // if (this.stopSpinning == false) {
+    //   this.updateCnt++;
+    //   console.log(">>>>>>> updated:" + this.updateCnt);
+    // }
+  }
 
   createReel(): void {
     let newTile: cc.Node;
@@ -67,13 +77,14 @@ export default class Reel extends cc.Component {
     const dirModifier = this.spinDirection === Aux.Direction.Down ? -1 : 1;
     if (el.position.y * dirModifier > 376) {
       el.position = cc.v3(0, -376 * dirModifier);
-
       let pop = null;
       
       if (this.realResult != null && this.realResult.length > 0) {
         pop = this.realResult.pop();
       }
-      
+      if (this.realIndex == 0) {
+        console.log(">> pop:" + pop);
+      }
       if (pop != null && pop >= 0) {
         el.getComponent('Tile').setTile(pop, this.realIndex, this.realResult.length);
       } else {
@@ -82,26 +93,14 @@ export default class Reel extends cc.Component {
     }
   }
 
-  animateDrum(): void {
-    if (this.realIndex == 0 || this.realIndex == 1) {
-      const tmpReal = this.getReal();
-      this.reelAnchor.children.forEach(element => {
-        const el = element;
-        el.getComponent('Tile').showGFX(false);
-        const row = parseInt(el.getComponent('Tile').row);
-  
-        if (tmpReal[row] == 10) {
-          el.getComponent('Tile').showDrumAnimation();
-        }
-      });
-    }
-  }
-
   getReal(): Array<number> {
-    const sArr = this.result.s.split(",");
-    let rstArr = sArr.slice(3 * this.realIndex, 3 * this.realIndex + 3);
-
-    return rstArr;
+    if (this.result) {
+      const sArr = this.result.reel.split(",");
+      const rstArr = [sArr[this.realIndex], sArr[5 + this.realIndex], sArr[10 + this.realIndex]];
+      return rstArr;
+    } else {
+      return null;
+    }
   }
 
   checkEndCallback(element: cc.Node = null): void {
@@ -114,16 +113,20 @@ export default class Reel extends cc.Component {
     }
   }
 
-  doSpin(windUp: number): void {
+  doSpin(windUp: number, mSpeed: number): void {
+    this.speed = mSpeed;
     this.stopSpinning = false;
-    this.reelAnchor.children.forEach(element => {
+    this.result = null;
+    this.realResult = null;
+    this.reelAnchor.children.forEach((element, index) => {
       const dirModifier = this.spinDirection === Aux.Direction.Down ? -1 : 1;
-      
       element.getComponent('Tile').removeAnimation();
+      element.getComponent('Tile').row = -1;
+      element.getComponent('Tile').col = -1;
       const delay = cc.tween(element).delay(windUp);
-      const start = cc.tween(element).by(0.25, { position: cc.v2(0, this.tileWidth * dirModifier) }, { easing: 'backIn' });
+      const start = cc.tween(element).by(0.25 * this.speed, { position: cc.v2(0, this.tileWidth * dirModifier) }, { easing: 'backIn' });
       const doChange = cc.tween().call(() => this.changeCallback(element));
-      const callSpinning = cc.tween(element).call(() => this.doSpinning(element, 5));
+      const callSpinning = cc.tween(element).call(() => this.doSpinning(element, 1));
       
       delay
         .then(start)
@@ -136,7 +139,7 @@ export default class Reel extends cc.Component {
   doSpinning(element: cc.Node = null, times = 1): void {
     const dirModifier = this.spinDirection === Aux.Direction.Down ? -1 : 1;
 
-    const move = cc.tween().by(0.04, { position: cc.v2(0, this.tileWidth * dirModifier) });
+    const move = cc.tween().by(0.04 * this.speed, { position: cc.v2(0, this.tileWidth * dirModifier) });
     const doChange = cc.tween().call(() => this.changeCallback(element));
     const repeat = cc.tween(element).repeat(times, move.then(doChange));
     const checkEnd = cc.tween().call(() => this.checkEndCallback(element));
@@ -147,10 +150,9 @@ export default class Reel extends cc.Component {
   doStop(element: cc.Node = null): void {
     const dirModifier = this.spinDirection === Aux.Direction.Down ? -1 : 1;
 
-    const move = cc.tween(element).by(0.04, { position: cc.v2(0, this.tileWidth * dirModifier) });
+    const move = cc.tween(element).by(0.04 * this.speed, { position: cc.v2(0, this.tileWidth * dirModifier) });
     const doChange = cc.tween().call(() => this.changeCallback(element));
-    const end = cc.tween().by(0.2, { position: cc.v2(0, this.tileWidth * dirModifier) }, { easing: 'bounceOut' });
-    
+    const end = cc.tween().by(0.2 * this.speed, { position: cc.v2(0, this.tileWidth * dirModifier) }, { easing: 'bounceOut' });
     
     move
       .then(doChange)

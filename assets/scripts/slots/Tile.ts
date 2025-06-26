@@ -30,12 +30,12 @@ export default class Tile extends cc.Component {
       const that = this;
       const thatParent = this.node.parent.parent.parent.parent;
       thatParent.on('all-win-animation', (res) => {
-        const wl = res.data.wl;
-        const win = res.data.w;
+        const wl = res.data.payLines;
+        const win = res.data.totalWin;
         for (let i = 0; i < wl.length; i++) {
-          const payLine = wl[i].PayLine;
-          if (payLine.PositionList[that.col] == that.row) {
-            that.showGFX(true, that.symbol, 0, true);
+          const positions = wl[i].positions;
+          if (positions.length > that.col && positions[that.col] == that.row) {
+            that.showGFX(true, that.symbol);
           }
         }
         if (that.row == 1 && that.col == 4) {
@@ -43,25 +43,29 @@ export default class Tile extends cc.Component {
             that.showWinLabel(win, true);
           }
         }
-        setTimeout(() => {
+        that.schedule(() => {
           that.showGFX(false);
-        }, 1000);
+        }, 1, 0, 0);
       });
       thatParent.on('sub-win-animation', (res) => {
-        const wl = res.data.wl;
+        const wl = res.data.payLines;
         const index = res.index;
-        const payLine = wl[index].PayLine;
-        const win = wl[index].WinValue;
-        if (payLine.PositionList[that.col] == that.row) {
-          if (that.col == 4 && payLine.PositionList[2] == that.row) {
-            that.showGFX(true, that.symbol, win, false);
-          } else {
-            that.showGFX(true, that.symbol, 0, false);
+        const positions = wl[index].positions;
+        const win = wl[index].winValue;
+        if (positions.length > that.col && positions[that.col] == that.row) {
+          that.showGFX(true, that.symbol);
+        }
+        if (that.row == positions[2] && that.col == 4) {
+          if (win > 0) {
+            that.showWinLabel(win, false);
           }
         }
-        setTimeout(() => {
+        that.schedule(() => {
           that.showGFX(false);
-        }, 1000);
+        }, 1, 0, 0);
+      });
+      thatParent.on('drum-animation', (res) => {
+        that.showDrumAnimation(res.data);
       });
     }
   }
@@ -106,27 +110,57 @@ export default class Tile extends cc.Component {
   setRandom(): void {
     const randomIndex = Math.floor(Math.random() * this.textures.length);
     this.setTile(randomIndex, -1, -1);
+    //this.node.getComponent(cc.Sprite).spriteFrame = null;
   }
 
-  showDrumAnimation() {
-    this.node.getComponent(cc.Sprite).spriteFrame = null;
-    this.animationNode.active = true;
-    this.skeleton.setAnimation(0, "item_nml_11", false);
-    this.node.getComponent(cc.AudioSource).play();
-    const that = this;
-    setTimeout(() => {
-      that.node.getComponent(cc.Sprite).spriteFrame = this.textures[parseInt(this.symbol)];
-      that.animationNode.active = false;
-    }, 1000);
+  showDrumAnimation(res) {
+    if (parseInt(this.symbol) == 10) {
+      const firstCol = this.getCols(0, res);
+      const secondCol = this.getCols(1, res);
+      const thirdCol = this.getCols(2, res);
+      const fourthCol = this.getCols(3, res);
+      const fifthCol = this.getCols(4, res);
+
+      if (this.col == 0) {
+        if (!firstCol.includes("10")) {
+          return;
+        }
+      } else if (this.col == 1) {
+        if (!firstCol.includes("10") || !secondCol.includes("10")) {
+          return;
+        }
+      } else if (this.col == 2) {
+        if (!firstCol.includes("10") || !secondCol.includes("10") || !thirdCol.includes("10")) {
+          return;
+        }
+      } else {
+        return;
+      }
+
+      this.node.getComponent(cc.Sprite).spriteFrame = null;
+      this.animationNode.active = true;
+      this.skeleton.setAnimation(0, "item_nml_11", false);
+      this.node.getComponent(cc.AudioSource).play();
+      const that = this;
+      that.schedule(() => {
+        that.node.getComponent(cc.Sprite).spriteFrame = this.textures[parseInt(this.symbol)];
+        that.animationNode.active = false;
+      }, 1, 0, 0);
+    }
   }
 
-  showGFX(option: boolean, index?: number, win?: number, isTotalWin?: boolean){
+  getCols(index: number, res: any) {
+    const sArr = res.reel.split(",");
+    const rstArr = [sArr[index], sArr[5 + index], sArr[10 + index]];
+    return rstArr;
+  }
+
+  showGFX(option: boolean, index?: number){
     if(option){
       this.node.getComponent(cc.Sprite).spriteFrame = null;
       this.skeleton.setAnimation(0, `item_nml_${index}`, true);
       this.animationNode.active = true;
       this.border.active = true;
-      this.showWinLabel(win, isTotalWin);
     }
     else{
       this.node.getComponent(cc.Sprite).spriteFrame = this.textures[parseInt(this.symbol)];
@@ -150,7 +184,7 @@ export default class Tile extends cc.Component {
     }
   }
 
-  removeAnimation(): void{
+  removeAnimation(): void {
     this.showGFX(false);
     this.skeleton.setAnimation(0, '', true);
     this.node.getComponent(cc.Sprite).spriteFrame = this.textures[parseInt(this.symbol)];

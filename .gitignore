@@ -5,6 +5,8 @@ package-lock.json
 project.json
 tsconfig.json
 *.meta
+assets/textures/
+assets/resources/
 assets/audio/
 assets/font/
 build/

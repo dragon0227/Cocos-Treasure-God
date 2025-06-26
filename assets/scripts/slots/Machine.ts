@@ -68,7 +68,7 @@ export default class Machine extends cc.Component {
       const theReel = this.reels[i].getComponent('Reel');
       const theMask = theReel.node.getChildByName("Mask");
       theMask.height = 550;
-      theReel.doSpin(0.03 * i);
+      theReel.doSpin(0.03 * i * this.speed, this.speed);
     }
   }
 
@@ -77,15 +77,14 @@ export default class Machine extends cc.Component {
   }
 
   stop(result: any = null): void {
-    const rngMod = Math.random() / 2;
     for (let i = 0; i < this.numberOfReels; i += 1) {
-      const spinDelay = i < 2 + rngMod ? i / 4 : rngMod * (i - 2) + i / 4;
+      const spinDelay = i + 1;
       const theReel = this.reels[i].getComponent('Reel');
       this.stopReel(theReel, result, i, spinDelay);
     }
   }
 
-  private stopReel(theReel: any, result: any, index: number, spinDelay: number): Promise<void> {
+  private stopReel(theReel: any, result: any, index: number, spinDelay: number): void {
     if(result){
       var res = JSON.parse(JSON.stringify(result));
       var realIndex = index;
@@ -94,52 +93,44 @@ export default class Machine extends cc.Component {
       res = null;
     }
     const that = this;
-    return new Promise(function (resolve, reject) {
-      setTimeout(() => {
-        theReel.readyStop(res, realIndex);
-        if (realIndex == 4) {
-          that.startAnimation(res);
-        }
-        resolve();
-      }, spinDelay * 500 * that.speed);
-    });
+    this.schedule(() => {
+      theReel.readyStop(res, realIndex);
+      if (realIndex == 4) {
+        that.startAnimation(res);
+      }
+    }, 0.1 * spinDelay * that.speed, 0, 0);
   }
 
   startAnimation(res) {
-    setTimeout(() => {
-      for (let i = 0; i < this.numberOfReels; i += 1) {
-        const theReel = this.reels[i].getComponent('Reel');
-        theReel.animateDrum();
-        const theMask = theReel.node.getChildByName("Mask");
-        theMask.height = 580;
-      }
-      this.node.dispatchEvent( new cc.Event.EventCustom('rolling-completed', true) );
+    this.node.dispatchEvent( new cc.Event.EventCustom('rolling-completed', true) );
       const that = this;
-      const wl = res.wl;
-      const w = res.w;
-      if (w > 0) {
-        that.schedule(async function() {
-          this.node.emit('all-win-animation', { data: res});
-    
-          if (wl.length > 1) {
-            for(let i = 0; i < wl.length; i++){
-              const timeoutId = setTimeout(() => {
-                this.node.emit('sub-win-animation', { data: res, index: i});
-              }, 1200 * (i + 1));
-              that.timeoutIds.push(timeoutId);
-            }
+      const wl = res.payLines;
+      const totalWin = res.totalWin;
+      
+      this.schedule(() => {
+        this.node.emit('drum-animation', { data: res});
+      }, 0.5, 0, 0);
+      if (wl && wl.length > 0) {
+        that.schedule(() => {
+          for (let i = 0; i < this.numberOfReels; i += 1) {
+            const theReel = this.reels[i].getComponent('Reel');
+            const theMask = theReel.node.getChildByName("Mask");
+            theMask.height = 580;
           }
-        }, (wl.length + 1) * 1.2 * that.speed + 0.5, 15, 0.1);
+          that.schedule(async function() {
+            this.node.emit('all-win-animation', { data: res});
+      
+            if (wl.length > 1) {
+              for(let i = 0; i < wl.length; i++){
+                const timeoutId = setTimeout(() => {
+                  that.node.emit('sub-win-animation', { data: res, index: i});
+                }, 1200 * (i + 1));
+                that.timeoutIds.push(timeoutId);
+              }
+            }
+          }, (wl.length + 1) * 1.2 + 0.5, 100, 0.1);
+        }, 0.5, 0, 0)
       }
-    }, 500);
-  }
-
-  firstTask(): void {
-    console.log("First task executed");
-  }
-
-  secondTask(): void {
-      console.log("Second task executed");
   }
 
   stopAnimation(): void {

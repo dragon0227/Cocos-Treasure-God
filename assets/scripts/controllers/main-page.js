@@ -109,10 +109,6 @@ cc.Class({
             type: cc.Float,
             visible: false
         },
-        isRollingCompleted:{
-            default:true,
-            visible:false
-        },
         totalBetValue:{
             default:0,
             visible:false,
@@ -302,8 +298,14 @@ cc.Class({
     },
     onLoad () {
         var that = this;
+        that.CurrPage = 1;
 
         this.PlayMusic("bg");
+
+        document.addEventListener('visibilitychange', this.onVisibilityChange.bind(this));
+
+        this.sendGetRequest();
+        //this.connectWebSocket();
 
         if (this.transitionNode) {
             //this.transitionNode.opacity = 0; // Start fully transparent
@@ -345,7 +347,6 @@ cc.Class({
 
         //sets the available credit.
         this.betResultLabel.string=this.betResultValue;
-        this.balanceLabel.string = this.balance;
         //init bet info label
         this.betInfoLabel.string=this.betArray[0];
 
@@ -353,8 +354,10 @@ cc.Class({
         
             if (event.isOn){
                 //play the game
-                that.spin();
-                that.PlaySFX("spin");
+                that.schedule(() => {
+                    that.spin();
+                    that.PlaySFX("spin");
+                }, 0.1, 0, 0);
             }
         });
         //implements the auto-spin button on/off event
@@ -398,7 +401,8 @@ cc.Class({
 
         //implements the rolling completed event of the rell.js class
         this.node.on('rolling-completed', function (event) {
-            if (that.result && that.result.w > 0){
+            that.updateBalance();
+            if (that.result && that.result.totalWin > 0){
                 that.startNormalWinAnimation();
                 that.PlaySFX("win");
                 that.PlaySFX("csd_laughing");
@@ -406,49 +410,23 @@ cc.Class({
             } else {
                 that.startBetFailedAnimation();
             }
+            
             if (that.isFreeSpin) {
+                console.log(">>>>>>>>>>>>>>> freeLimit:" + that.freeLimit + " totalSpin" + that.result.totalSpin);
                 if (that.freeLimit == 0) {
                     that.stopFreeAnimation();
-                } else if (that.freeLimit == 3) {
-                    
+                } else if (that.freeLimit == that.result.totalSpin) {
+                    that.unschedule(that.autoSpin);
                     that.startFreeWinAnimation().then(res => {
-                        //LOST update credit
-                        that.updateBalance(that.balance-that.currentBetValue);
-                        that.freeSpin();
+                        that.schedule(that.freeSpin, 1, 0, 0);
                     });
                 } else {
-                    that.updateBalance(that.balance-that.currentBetValue);
-                    that.freeSpin();
+                    that.schedule(that.freeSpin, 1, 0, 0);
                 }
+            } else if (that.isAutoSpin) {
+                that.schedule(that.autoSpin, 1, 0, 0);
             } else {
-                //LOST update credit
-                that.updateBalance(that.balance-that.currentBetValue);
-                            
-                if (!that.isAutoSpin){
-                    //spin completed
-                    that.isRollingCompleted=true;
-                    that.spinButton.reset();
-                }else{
-                    that.autoSpinTimer=setTimeout(function(){
-                        //auto-spin completed...will restart
-                        if (that.autoLimit > 0) {
-                            that.autoLimit--;
-                            const labelComponent = that.limitLabel.getComponent(cc.Label);
-                            labelComponent.string = that.autoLimit;
-                            that.spin();
-                        } else {
-                            that.autoLimit = 0;
-                            that.isAutoSpin=false; 
-                            that.autoComboButton.onVirtualLocked(false);
-                        }
-                    }, 1000 * that.speed);  
-                }
-                if (that.isRollingCompleted){
-                    //unlocks all buttons
-                    that.setButtonsLocked(false);
-                    //update user default current credit
-                    //UserDefault.instance.setCurrentCredit(that.currentCredit);
-                }
+                that.schedule(that.resetSpinButton, 0.3, 0, 0);
             }
         });
 
@@ -542,7 +520,7 @@ cc.Class({
         });
 
         this.backButton.node.on('on-off-mousedown', function (event) {
-            window.param = "DISCONNECT";
+            that.CurrPage = 0;
             cc.director.loadScene('StartPage');
         });
 
@@ -553,7 +531,6 @@ cc.Class({
         this.soundButton.node.on('on-off-mousedown', function (event) {
             if (event.isOn){
                 that.musicSource.stop();
-                
             } else {
                 that.PlayMusic("bg");
                 that.PlaySFX("spin");
@@ -566,46 +543,60 @@ cc.Class({
             this.comboBtn.play('combo-animation-down');
         }
     },
+    resetSpinButton: function() {
+        this.spinButton.reset();
+        this.setButtonsLocked(false);
+        this.unschedule(this.resetSpinButton);
+    },
     setButtonsLocked:function(isLocked){
         this.spinButton.onLocked(isLocked);
         this.betDecreaseButton.onLocked(isLocked);
         this.betIncreaseButton.onLocked(isLocked);
     },
+    autoSpin: function() {
+        const that = this;
+        if (!document.hidden) {
+            if (that.autoLimit > 0) {
+                that.autoLimit--;
+                const labelComponent = that.limitLabel.getComponent(cc.Label);
+                labelComponent.string = that.autoLimit;
+                that.spin();
+            } else {
+                that.autoLimit = 0;
+                that.isAutoSpin=false; 
+                that.autoComboButton.onVirtualLocked(false);
+                that.limitLabel.active = false;
+                that.noLimitLabel.active = true;
+                that.setButtonsLocked(false);
+                that.unschedule(that.autoSpin);
+            }
+        }
+        
+    },
     freeSpin: function() {
         const that = this;
-        this.autoSpinTimer=setTimeout(function(){
-            //auto-spin completed...will restart
+        if (!document.hidden) {
             if (that.freeLimit > 0) {
-                that.freeLimit--;
                 that.freeLimitLabel.string = that.freeLimit;
                 that.spin();
+            } else {
+                that.unschedule(that.freeSpin);
             }
-        }, 1000 * this.speed);
+        }
     },
     spin:function(){
         if (this.balance===0){
             return;
         }
-        
-        if (this.isRollingCompleted){
-            if (!this.isAutoSpin && !this.isFreeSpin){
-                this.isRollingCompleted=false;
-            }
-            this.setButtonsLocked(true);
-            //this.PlaySFX("reelRoll")
-            this.machine.getComponent('Machine').spin(this.speed);
-            this.requestResult();
-        }
+        this.setButtonsLocked(true);
+        //this.PlaySFX("reelRoll")
+        this.machine.getComponent('Machine').spin(this.speed);
+        this.sendMessage();
     },
-    updateBalance:function(value){
-        this.balance=value;
-        this.betResultLabel.string= Math.round(this.result.w.toString(), 2);
-        this.balanceLabel.string = Math.round(this.balance.toString(), 2);
-        if (parseInt(this.balance)<=0){
-            this.PlaySFX('gameOver');
-           // AudioManager.instance.playGameOver();
-            //TODO reset credit automatically
-            this.updateBalance(100);
+    updateBalance:function(){
+        if (this.result) {
+            this.betResultLabel.string= this.result.totalWin.toFixed(2).toString();
+            this.balanceLabel.string = this.result.balance.toFixed(2).toString();
         }
     },
 
@@ -618,73 +609,41 @@ cc.Class({
         }
     },
 
-    requestResult: function() {
-        this.result = null;
-    
-        const url = "http://localhost:12002/e/e/spin";
-        const params = new URLSearchParams();
-        params.append('api_name', 'spin');
-        params.append('token', 'e36f0b7216dbf047a8f61329');
-        params.append('game_code', 'doghouse');
-        params.append('c', 'pZqXk5tM');
-        // this.sendPostRequest(url, params).then(res => {
-        //     this.result = res;
-        //     this.machine.getComponent('Machine').stop(this.result);
-        // });
-        setTimeout(() => {
-            const tmpRes = '{"na":"s","balance":1000128.08,"sh":5,"sver":3,"fs":0,"fi":0,"wm":1,"s":"10,3,9,7,1,9,9,2,7,9,7,9,4,8,9","ws":"","w":0,"tw":0,"l":20,"wl":[{"SymbolIndex":9,"WinValue":0.6000000000000001,"Count":3,"PayLine":{"Name":"Line12","PositionList":[2,2,2,2,2]}},{"SymbolIndex":9,"WinValue":0.6000000000000001,"Count":3,"PayLine":{"Name":"Line13","PositionList":[0,0,0,0,0]}},{"SymbolIndex":3,"WinValue":6.000000000000001,"Count":3,"PayLine":{"Name":"Line1","PositionList":[1,1,1,1,1]}}],"bebet":0.2,"gv":1,"sv":0,"svs":[]}';
-            const res = JSON.parse(tmpRes);
-            this.result = res;
-            this.machine.getComponent('Machine').stop(this.result);
-        }, 1000 * this.speed);
-    },
+    sendGetRequest() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const mgckey = urlParams.get('mgckey');
+        const url = `https://${window.location.host}/getBalance?token=${mgckey}`;
+        //const url = `https://localhost:7142/getBalance?token=AUTHTOKEN@d6e905c89a714d2d9f5b713aa9697241~stylename@chainfunz_chainfunz~SESSION@98c8567f-e2e4-4ec3-9c99-72c520f1ecd0`;
 
-    sendPostRequest: function(url, params) {
-        return new Promise(resolve => {
-          setTimeout(() => {
-            // Function implementation as shown above
-            fetch(url, {
-              method: "POST",
-              headers: {
-                  'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-              },
-              body: params.toString()
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                console.log("Server Response:", data);
-                const parseData = JSON.parse(data.returnData);
-                resolve(parseData.returnData);
-            })
-            .catch(error => {
-                console.error("Fetch error:", error);
-                resolve(null);
-            });
-          }, 1000 * this.speed);
+        cc.loader.load({ url: url, type: 'json' }, (err, response) => {
+            if (err) {
+                console.error('Error:', err);
+            } else {
+                const res = response;
+                console.log("==========");
+                console.log(res.balance);
+                this.balanceLabel.string = res.balance.toFixed(2).toString();
+            }
         });
     },
 
     startNormalWinAnimation: function() {
         this.rightMan.setAnimation(0, "caishen_02", false);
-
-        setTimeout(() => {
-            this.rightMan.setAnimation(0, "caishen_01", true);
-        }, 1000 * this.speed);
+        const that = this;
+        this.schedule(() => {
+            that.rightMan.setAnimation(0, "caishen_01", true);
+        }, that.speed, 0, 0);
     },
 
     startBetFailedAnimation: function() {
         this.rightMan.setAnimation(0, "caishen_05", false);
-
-        setTimeout(() => {
+        const that = this;
+        this.schedule(() => {
             this.rightMan.setAnimation(0, "caishen_01", true);
-        }, 1000 * this.speed);
+        }, that.speed, 0, 0);
     },
     startBigWinAnimation: function() {
+        const that = this;
         return new Promise(resolve => {
             this.bigWinView.active = true;
             this.rightMan.setAnimation(0, "caishen_02", true);
@@ -695,42 +654,48 @@ cc.Class({
             const steps = duration / stepTime;
             const increment = (endValue - startValue) / steps;
             let currentValue = startValue;
-            const interval = setInterval(() => {
+            that.schedule(() => {
                 currentValue += increment;
                 if (currentValue >= endValue) {
                     currentValue = endValue;
-                    clearInterval(interval);
-                    setTimeout(() => {
-                        this.bigWinView.active = false;
-                        this.rightMan.setAnimation(0, "caishen_01", true);
+                    that.unscheduleAllCallbacks();
+                    that.schedule(() => {
+                        that.bigWinView.active = false;
+                        that.rightMan.setAnimation(0, "caishen_01", true);
                         resolve();
-                    }, 1500);
+                    }, 1.5, 0, 0); 
                 }
-                this.bigWinLabel.string = currentValue.toFixed(2);
-            }, stepTime);
+                that.bigWinLabel.string = currentValue.toFixed(2);
+              }, 0.03, 10000, 0);
         })
     },
     stopFreeAnimation: function() {
-        setTimeout(() => {
-            this.machine.getComponent('Machine').stopWinAnimation();
-        }, 1000);
+        const that = this;
+        this.isFreeSpin = false;
         this.PlaySFX("mf_final");
         this.startBigWinAnimation().then(res => {
-            this.musicSource.stop();
-            this.PlayMusic("bg");
-            this.updateSpriteFrame(this.mainBackground, this.mainBackgroundTexture._texture);
-            this.updateSpriteFrame(this.slotBackground, this.slotBackgroundTexture._texture);
-            this.updateSpriteFrame(this.slotBorder, this.slotBorderTexture._texture);
-            this.helpButton.reset();
-            if (this.soundButton.isOn) {
-                this.updateSpriteFrame(this.soundButtonSprite, this.normalSoundOffTexture._texture);
+            that.musicSource.stop();
+            that.PlayMusic("bg");
+            that.updateSpriteFrame(that.mainBackground, that.mainBackgroundTexture._texture);
+            that.updateSpriteFrame(that.slotBackground, that.slotBackgroundTexture._texture);
+            that.updateSpriteFrame(that.slotBorder, that.slotBorderTexture._texture);
+            that.helpButton.reset();
+            if (that.soundButton.isOn) {
+                that.updateSpriteFrame(that.soundButtonSprite, that.normalSoundOffTexture._texture);
             } else {
-                this.soundButton.reset();
+                that.soundButton.reset();
             }
-            this.freeLimitView.active = false;
-            this.rightMan.setAnimation(0, "caishen_01", true);
-            this.setButtonsLocked(false);
-            this.enableMouseEvents();
+            that.freeLimitView.active = false;
+            that.rightMan.setAnimation(0, "caishen_01", true);
+            if (this.isAutoSpin) {
+                that.enableMouseEvents();
+                that.schedule(() => {
+                    that.autoSpin();
+                  }, 0.8, 0, 0);
+            } else {
+                that.setButtonsLocked(false);
+                that.enableMouseEvents();
+            }
         });
     },
     startFreeWinAnimation: function() {
@@ -741,40 +706,44 @@ cc.Class({
     
             this.disableMouseEvents();
     
-            setTimeout(() => {
-                this.freeWinView.active = false;
-                this.slotView.active = false;
-                this.rightMan.setAnimation(0, "caishen_04", false);
-                this.PlaySFX("mf_man");
+            const that = this;
+            this.schedule(() => {
+                that.freeWinView.active = false;
+                that.slotView.active = false;
+                that.rightMan.setAnimation(0, "caishen_04", false);
+                that.PlaySFX("mf_man");
                 new Promise(resolve => {
-                    setTimeout(() => {
-                        this.freeSun.active = true;
-                        setTimeout(() => {
+                    that.schedule(() => {
+                        //that.freeSun.active = true;
+                        that.schedule(() => {
                             resolve();
-                        }, 1000);
-                    }, 2000);
+                          }, 1, 0, 0);
+                      }, 2, 0, 0);
                 }).then(() => {
-                    this.musicSource.stop();
-                    this.PlayMusic("csd-free-bgm");
-                    this.freeSun.active = false;
-                    this.slotView.active = true;
-                    this.updateSpriteFrame(this.mainBackground, this.freeMainBackgroundTexture._texture);
-                    this.updateSpriteFrame(this.slotBackground, this.freeSlotBackgroundTexture._texture);
-                    this.updateSpriteFrame(this.slotBorder, this.freeSlotBorderTexture._texture);
-                    this.updateSpriteFrame(this.helpButtonSprite, this.freeHelpTexture._texture);
-                    if (this.soundButton.isOn) {
-                        this.updateSpriteFrame(this.soundButtonSprite, this.freeSoundOffTexture._texture);
-                    } else {
-                        this.updateSpriteFrame(this.soundButtonSprite, this.freeSoundOnTexture._texture);
-                    }
-                    this.freeLimitView.active = true;
-                    this.freeLimitLabel.string = this.freeLimit.toString();
-                    this.rightMan.setAnimation(0, "caishen_01", true);
+                    that.musicSource.stop();
+                    that.PlayMusic("csd-free-bgm");
+                    that.changeFreeView();
+                    that.rightMan.setAnimation(0, "caishen_01", true);
 
                     resolve1();
                 });
-            }, 5000)
+              }, 5, 0, 0);
         })
+    },
+    changeFreeView() {
+        this.freeSun.active = false;
+        this.slotView.active = true;
+        this.updateSpriteFrame(this.mainBackground, this.freeMainBackgroundTexture._texture);
+        this.updateSpriteFrame(this.slotBackground, this.freeSlotBackgroundTexture._texture);
+        this.updateSpriteFrame(this.slotBorder, this.freeSlotBorderTexture._texture);
+        this.updateSpriteFrame(this.helpButtonSprite, this.freeHelpTexture._texture);
+        if (this.soundButton.isOn) {
+            this.updateSpriteFrame(this.soundButtonSprite, this.freeSoundOffTexture._texture);
+        } else {
+            this.updateSpriteFrame(this.soundButtonSprite, this.freeSoundOnTexture._texture);
+        }
+        this.freeLimitView.active = true;
+        this.freeLimitLabel.string = this.freeLimit.toString();
     },
     updateSpriteFrame:function(sprite,texture){
         //updates the texture for the on/off status
@@ -814,7 +783,7 @@ cc.Class({
     PlayMusic:function(name){
         let s = this.musicSound.find(s => s.n === name)
         if(s == null){
-            console.log("not found")
+            //console.log("not found")
         }else{
             this.musicSource.clip = s.clip
             this.musicSource.play();
@@ -824,10 +793,129 @@ cc.Class({
     PlaySFX:function(name){
         let s = this.sfxSound.find(s => s.n === name)
         if(s == null){
-            console.log("not found")
+            //console.log("not found")
         }else{
             this.sfxSource.clip = s.clip
             this.sfxSource.play();
+        }
+    },
+
+    connectWebSocket() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const mgckey = urlParams.get('mgckey');
+        const url = `wss://${window.location.host}/slot?token=${mgckey}&game=treasureGod`;
+        // const mgckey = "AUTHTOKEN@d6e905c89a714d2d9f5b713aa9697241~stylename@chainfunz_chainfunz~SESSION@98c8567f-e2e4-4ec3-9c99-72c520f1ecd0";
+        // const url = `wss://localhost:7142/slot?token=${mgckey}&game=treasureGod`;
+        // const url = `wss://tg.aaplaysgames.com/slot?token=${mgckey}&game=treasureGod`;
+        this.socket = new WebSocket(url);
+        const that = this;
+
+        this.socket.onopen = () => {
+            cc.log('WebSocket connection opened');
+            // Send a message when the connection is open
+            setTimeout(() => {
+                that.setButtonsLocked(true);
+                //that.machine.getComponent('Machine').spin(that.speed);
+                that.socket.send(JSON.stringify({ action: 'init' }));
+            }, 100);
+        };
+
+        this.socket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            // const data = {
+            //     "nextAction": "spin",
+            //     "reel": "3,1,5,7,8,5,0,1,6,2,7,8,3,0,7",
+            //     "totalWin": 1,
+            //     "win": 1,
+            //     "payLines": [
+            //         {
+            //         "symbol": 3,
+            //         "winValue": 0.4,
+            //         "positions": [
+            //             0,
+            //             1,
+            //             2,
+            //             2
+            //         ]
+            //         },
+            //         {
+            //         "symbol": 5,
+            //         "winValue": 0.6,
+            //         "positions": [
+            //             1,
+            //             1,
+            //             0,
+            //             2
+            //         ]
+            //         }
+            //     ],
+            //     "balance": 678466.59,
+            //     "index": 0
+            //     }
+            //cc.log('Message from server:', data);
+            // Handle incoming messages
+            if (data.reel) {
+                that.receiveMessage(data);
+            }
+        };
+
+        this.socket.onclose = () => {
+            if (that.CurrPage == 1) {
+                cc.log('WebSocket connection closed');
+                window.param = "DISCONNECT";
+                cc.director.loadScene('StartPage');
+            }
+        };
+
+        this.socket.onerror = (error) => {
+            cc.error('WebSocket error:', error);
+        };
+    },
+
+    receiveMessage(data) {
+        if (data.nextAction == "collect") {
+            this.schedule(() => {
+                this.socket.send(JSON.stringify({ action: 'collect'}));
+            },  0.1, 0, 0); 
+        }
+        if (data.remainSpin && data.remainSpin >= 0) {
+            this.freeLimit = data.remainSpin;
+            this.isFreeSpin = true;
+            // if (this.freeLimitView.active == false) {
+            //     this.changeFreeView();
+            // }
+        } else {
+            this.freeLimit = 0;
+        }
+        this.result = data;
+        const that = this;
+        this.schedule(() => {
+            that.machine.getComponent('Machine').stop(data);
+        },  this.speed == 1 ? 0.5: 0.1, 0, 0); 
+    },
+
+    sendMessage() {
+        this.result = null;
+
+        if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+            this.socket.send(JSON.stringify({ action: 'spin', bet: this.betArray[this.currBetIndex]}));
+        } else {
+            cc.warn('WebSocket is not open. Cannot send message.');
+        }
+    },
+
+    onVisibilityChange() {
+        if (document.hidden) {
+            //this.onHide();
+        } else {
+            //this.onShow();
+        }
+    },
+
+    onDestroy() {
+        document.removeEventListener('visibilitychange', this.onVisibilityChange.bind(this));
+        if (this.socket) {
+            this.socket.close();
         }
     }
 });
